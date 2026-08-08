@@ -3,14 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced NICU Dose Calculator</title>
+    <title>Advanced NICU Protocol Calculator</title>
     <style>
         :root {
             --primary-color: #005b96;
             --secondary-color: #b3cde0;
             --bg-color: #f4f7f6;
             --text-color: #333;
-            --accent-color: #e67e22;
+            --danger-color: #d9534f;
+            --success-color: #27ae60;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -20,7 +21,7 @@
             padding: 20px;
         }
         .container {
-            max-width: 650px;
+            max-width: 700px;
             margin: 0 auto;
             background: white;
             padding: 25px;
@@ -38,10 +39,12 @@
             display: flex;
             gap: 15px;
             margin-bottom: 15px;
+            flex-wrap: wrap;
         }
         .form-group {
             flex: 1;
-            margin-bottom: 15px;
+            min-width: 200px;
+            margin-bottom: 10px;
         }
         label {
             display: block;
@@ -50,18 +53,52 @@
             color: var(--primary-color);
             font-size: 14px;
         }
-        input, select {
+        input[type="number"], input[type="text"], select {
             width: 100%;
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 6px;
             box-sizing: border-box;
             font-size: 15px;
+            transition: all 0.3s;
         }
         input[readonly] {
             background-color: #e9ecef;
-            color: var(--accent-color);
+            color: #555;
+            border-color: #bbb;
             font-weight: bold;
+        }
+        .std-badge {
+            display: inline-block;
+            background-color: var(--success-color);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-right: 5px;
+            display: none; /* مخفي افتراضياً */
+        }
+        .amikin-note {
+            color: var(--danger-color);
+            font-size: 12px;
+            font-weight: bold;
+            display: none;
+            margin-top: 5px;
+        }
+        .checkbox-group {
+            background-color: #fff3cd;
+            border-right: 4px solid #ffc107;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .checkbox-group input {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
         }
         .btn {
             width: 100%;
@@ -89,52 +126,51 @@
         }
         .highlight {
             font-weight: bold;
-            color: #d9534f;
+            color: var(--danger-color);
         }
-        .info-badge {
-            background-color: #27ae60;
-            color: white;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 12px;
+        .success-text {
+            color: var(--success-color);
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>حاسبة أدوية العناية المركزة لحديثي الولادة</h2>
+    <h2>حاسبة البروتوكول المتقدمة (NICU)</h2>
     
+    <!-- صف الأعمار -->
     <div class="row">
         <div class="form-group">
-            <label for="ga">Gestational Age (weeks):</label>
+            <label>Gestational Age (weeks):</label>
             <input type="number" id="ga" min="22" max="42" placeholder="مثال: 30" oninput="calculatePMA()">
         </div>
         
         <div class="form-group">
-            <label for="pna">Postnatal Age (days):</label>
+            <label>Postnatal Age (days):</label>
             <input type="number" id="pna" min="0" max="90" placeholder="مثال: 10" oninput="calculatePMA()">
         </div>
 
         <div class="form-group">
-            <label for="pma">Calculated PMA (weeks):</label>
+            <label>Calculated PMA (weeks):</label>
             <input type="text" id="pma" readonly placeholder="سيحسب تلقائياً">
         </div>
     </div>
 
+    <!-- صف الوزن والدواء -->
     <div class="row">
         <div class="form-group">
-            <label for="weight">وزن الطفل (كجم):</label>
+            <label>وزن الطفل (كجم):</label>
             <input type="number" id="weight" step="0.01" placeholder="مثال: 1.5">
         </div>
 
         <div class="form-group">
-            <label for="drug">اختر الدواء:</label>
-            <select id="drug">
-                <option value="vancomycin">Vancomycin</option>
-                <option value="amikin">Amikin (Amikacin)</option>
+            <label>اختر الدواء:</label>
+            <select id="drug" onchange="updateVialInputs()">
                 <option value="unasyn">Unasyn (Ampicillin/Sulbactam)</option>
                 <option value="meronem">Meronem (Meropenem)</option>
+                <option value="amikin">Amikin (Amikacin)</option>
+                <option value="vancomycin">Vancomycin</option>
                 <option value="caffeine">Caffeine Citrate</option>
                 <option value="calcium">Calcium Gluconate 10%</option>
                 <option value="fluconazole">Fluconazole</option>
@@ -142,19 +178,29 @@
         </div>
     </div>
 
-    <div class="row">
+    <!-- زر التهاب السحايا -->
+    <div class="checkbox-group">
+        <input type="checkbox" id="meningitisToggle">
+        <label for="meningitisToggle" style="margin: 0; color: #856404; font-weight: bold;">
+            تفعيل جرعة التهاب السحايا (Anti-meningitic Dose)
+        </label>
+    </div>
+
+    <!-- صف تفاصيل الفايل -->
+    <div class="row" style="background: #f8f9fa; padding: 10px; border-radius: 8px;">
         <div class="form-group">
-            <label for="vial_mg">تركيز الفايل المتاح (mg):</label>
-            <input type="number" id="vial_mg" placeholder="مثال: 500">
+            <label>تركيز الفايل المتاح (mg): <span id="stdBadgeMg" class="std-badge">تركيز قياسي حسب البروتوكول</span></label>
+            <input type="number" id="vial_mg" placeholder="أدخل التركيز">
         </div>
 
         <div class="form-group">
-            <label for="vial_ml">حجم الفايل المتاح (ml):</label>
-            <input type="number" id="vial_ml" step="0.1" placeholder="مثال: 5 أو حجم الحل">
+            <label>حجم الفايل المتاح (ml): <span id="stdBadgeMl" class="std-badge">تركيز قياسي</span></label>
+            <input type="number" id="vial_ml" step="0.1" placeholder="أدخل الحجم">
+            <div id="amikinNote" class="amikin-note">تنويه: هذا التركيز ناتج عن إضافة 1 مل دواء إلى 49 مل محلول.</div>
         </div>
     </div>
 
-    <button class="btn" onclick="calculateDose()">احسب الجرعة والتحضير الدقيق</button>
+    <button class="btn" onclick="calculateDose()">احسب الجرعة والتحضير</button>
 
     <div class="result-box" id="resultBox">
         <div id="resultContent"></div>
@@ -162,126 +208,150 @@
 </div>
 
 <script>
-    // الدالة المسؤولة عن الحساب التلقائي للـ PMA فور إدخال الـ GA والـ PNA
+    // حساب PMA
     function calculatePMA() {
         const ga = parseFloat(document.getElementById('ga').value) || 0;
         const pna = parseFloat(document.getElementById('pna').value) || 0;
-        
         if (ga > 0) {
-            const pma = ga + (pna / 7);
-            document.getElementById('pma').value = pma.toFixed(1);
+            document.getElementById('pma').value = (ga + (pna / 7)).toFixed(1);
         } else {
             document.getElementById('pma').value = '';
         }
     }
 
-    // قاعدة البيانات الثابتة للأدوية (القيم الافتراضية)
-    const defaultDrugsData = {
-        unasyn: { dosePerKg: 50, maxConc: 50, interval: "كل 12 ساعة (تتغير حسب العمر والوزن)", note: "Dose based on Ampicillin. Dilute with NS." }, 
-        meronem: { dosePerKg: 20, maxConc: 50, interval: "كل 12 ساعة", note: "For meningitis, dose is 40 mg/kg." },
-        caffeine: { dosePerKg: 10, maxConc: 10, interval: "كل 24 ساعة", note: "Maintenance dose. Loading is 20 mg/kg." },
-        calcium: { dosePerKg: 100, maxConc: 50, interval: "كل 6-8 ساعات أو مستمر", note: "Max peripheral conc: 50mg/ml. Infuse slowly!" },
-        fluconazole: { dosePerKg: 12, maxConc: 2, interval: "كل 72-24 ساعة حسب العمر", note: "Flash IV over 30 mins." }
+    // قاعدة بيانات الأدوية المحدثة
+    const drugsData = {
+        unasyn: { isStandard: true, stdMg: 500, stdMl: 16, baseDose: 50, meningitisDose: 100, interval: "كل 12-8 ساعات حسب العمر", note: "Dose based on Ampicillin component." }, 
+        meronem: { isStandard: true, stdMg: 500, stdMl: 25, baseDose: 20, meningitisDose: 40, interval: "كل 12-8 ساعات حسب العمر", note: "Infuse over 30 mins." },
+        amikin: { isStandard: true, stdMg: 250, stdMl: 50, baseDose: 15, meningitisDose: 20, maxConc: 5, note: "Infuse over 30 mins." },
+        vancomycin: { isStandard: true, stdMg: 500, stdMl: 10, baseDose: 15, meningitisDose: 15, maxConc: 5, note: "Infuse over 60 mins. Monitor trough levels." },
+        caffeine: { isStandard: false, baseDose: 10, meningitisDose: 10, maxConc: 10, interval: "كل 24 ساعة", note: "Maintenance dose." },
+        calcium: { isStandard: false, baseDose: 100, meningitisDose: 100, maxConc: 50, interval: "كل 6-8 ساعات", note: "Max peripheral conc: 50mg/ml." },
+        fluconazole: { isStandard: false, baseDose: 12, meningitisDose: 12, maxConc: 2, interval: "كل 72-24 ساعة حسب العمر", note: "Flash IV." }
     };
 
+    // تحديث الخانات عند تغيير الدواء أو تحميل الصفحة
+    function updateVialInputs() {
+        const drugKey = document.getElementById('drug').value;
+        const drugInfo = drugsData[drugKey];
+        
+        const vialMgInput = document.getElementById('vial_mg');
+        const vialMlInput = document.getElementById('vial_ml');
+        const badges = document.querySelectorAll('.std-badge');
+        const amikinNote = document.getElementById('amikinNote');
+
+        if (drugInfo.isStandard) {
+            vialMgInput.value = drugInfo.stdMg;
+            vialMlInput.value = drugInfo.stdMl;
+            vialMgInput.readOnly = true;
+            vialMlInput.readOnly = true;
+            badges.forEach(b => b.style.display = 'inline-block');
+            
+            // إظهار ملاحظة الأميكين فقط لو تم اختياره
+            amikinNote.style.display = (drugKey === 'amikin') ? 'block' : 'none';
+        } else {
+            vialMgInput.value = '';
+            vialMlInput.value = '';
+            vialMgInput.readOnly = false;
+            vialMlInput.readOnly = false;
+            badges.forEach(b => b.style.display = 'none');
+            amikinNote.style.display = 'none';
+        }
+    }
+
+    // تشغيل الدالة فور تحميل الصفحة لضبط الدواء الافتراضي
+    window.onload = updateVialInputs;
+
+    // دالة الحساب الرئيسية
     function calculateDose() {
         const drugKey = document.getElementById('drug').value;
         const weight = parseFloat(document.getElementById('weight').value);
         const vialMg = parseFloat(document.getElementById('vial_mg').value);
         const vialMl = parseFloat(document.getElementById('vial_ml').value);
-        const ga = parseFloat(document.getElementById('ga').value) || 0;
-        const pna = parseFloat(document.getElementById('pna').value) || 0;
         const pma = parseFloat(document.getElementById('pma').value) || 0;
+        const pna = parseFloat(document.getElementById('pna').value) || 0;
+        const isMeningitis = document.getElementById('meningitisToggle').checked;
 
         if (!weight || !vialMg || !vialMl) {
-            alert("برجاء إدخال الوزن وتفاصيل الفايل المتاح أولاً.");
+            alert("برجاء إدخال الوزن وتأكيد بيانات الفايل.");
             return;
         }
 
-        let dosePerKg = 0;
-        let interval = "";
-        let maxConc = 5; // الافتراضي للتخفيف الآمن
-        let note = "";
+        const drugInfo = drugsData[drugKey];
         const drugName = document.getElementById('drug').options[document.getElementById('drug').selectedIndex].text;
-
-        // منطق حساب جرعات الـ Vancomycin بناءً على الـ PMA (تبعاً للمراجع القياسية مثل Neofax)
+        
+        let dosePerKg = isMeningitis ? drugInfo.meningitisDose : drugInfo.baseDose;
+        let interval = drugInfo.interval || "حسب البروتوكول";
+        let maxConc = drugInfo.maxConc || 5; 
+        
+        // منطق Interval خاص بـ Vancomycin و Amikacin (كما في الكود السابق)
         if (drugKey === 'vancomycin') {
-            maxConc = 5; // 5 mg/ml
-            dosePerKg = 15; // الجرعة القياسية ثابتة غالباً والتحكم في الـ Interval
-            note = "Infuse over 60 mins. Monitor trough levels before the 4th dose.";
-            
-            if (!pma) {
-                alert("برجاء إدخال Gestational Age و Postnatal Age لحساب جرعة الـ Vancomycin بدقة.");
-                return;
-            }
-
-            if (pma < 29) {
-                interval = "كل 24 ساعة";
-            } else if (pma >= 29 && pma <= 36) {
-                interval = "كل 12 ساعة";
-            } else if (pma >= 37 && pma <= 44) {
-                interval = "كل 8 ساعات";
-            } else {
-                interval = "كل 6 ساعات";
-            }
-        } 
-        // منطق حساب جرعات الـ Amikin بناءً على الـ PMA والـ PNA
-        else if (drugKey === 'amikin') {
-            maxConc = 5; // 5 mg/ml
-            note = "Infuse over 30 mins. Check peak and trough if indicated.";
-            
-            if (!pma) {
-                alert("برجاء إدخال الأعمار لحساب جرعة الـ Amikin بدقة.");
-                return;
-            }
-
-            if (pma < 30) {
-                dosePerKg = 15;
-                interval = "كل 48 ساعة";
-            } else if (pma >= 30 && pma <= 34) {
-                if (pna <= 7) {
-                    dosePerKg = 15; interval = "كل 36 ساعة";
-                } else {
-                    dosePerKg = 15; interval = "كل 24 ساعة";
-                }
-            } else { // PMA >= 35
-                if (pna <= 7) {
-                    dosePerKg = 15; interval = "كل 24 ساعة";
-                } else {
-                    dosePerKg = 15; interval = "كل 12-24 ساعة";
-                }
-            }
-        } 
-        // الأدوية الأخرى تستدعي البيانات الافتراضية (يمكنك التوسع فيها بنفس الطريقة لاحقاً)
-        else {
-            const drugInfo = defaultDrugsData[drugKey];
-            dosePerKg = drugInfo.dosePerKg;
-            maxConc = drugInfo.maxConc;
-            interval = drugInfo.interval;
-            note = drugInfo.note;
+            if (!pma) { alert("أدخل الأعمار لـ Vancomycin."); return; }
+            if (pma < 29) interval = "كل 24 ساعة";
+            else if (pma <= 36) interval = "كل 12 ساعة";
+            else if (pma <= 44) interval = "كل 8 ساعات";
+            else interval = "كل 6 ساعات";
+        } else if (drugKey === 'amikin') {
+            if (!pma) { alert("أدخل الأعمار لـ Amikin."); return; }
+            if (pma < 30) interval = "كل 48 ساعة";
+            else if (pma <= 34) interval = (pna <= 7) ? "كل 36 ساعة" : "كل 24 ساعة";
+            else interval = (pna <= 7) ? "كل 24 ساعة" : "كل 12-24 ساعة";
         }
 
-        // العمليات الحسابية الرياضية
+        // الحسابات
         const requiredDoseMg = weight * dosePerKg;
         const volumeToDraw = (requiredDoseMg / vialMg) * vialMl;
-        
-        let totalVolumeNeeded = requiredDoseMg / maxConc;
-        if (totalVolumeNeeded < volumeToDraw) {
-            totalVolumeNeeded = volumeToDraw;
-        }
-        const diluentToAdd = totalVolumeNeeded - volumeToDraw;
 
-        // طباعة النتيجة للمستخدم المعالج
+        // توليد نص النتيجة بناءً على نوع الدواء
+        let stepsHTML = "";
+
+        if (drugInfo.isStandard) {
+            if (drugKey === 'vancomycin') {
+                // استثناء الفانكومايسين
+                let totalVolumeNeeded = requiredDoseMg / maxConc;
+                let diluentToAdd = totalVolumeNeeded > volumeToDraw ? totalVolumeNeeded - volumeToDraw : 0;
+                
+                stepsHTML = `
+                    1. <strong>التحضير الأولي:</strong> قم بحل فايل (${drugInfo.stdMg} mg) في (${drugInfo.stdMl} ml).<br>
+                    2. <strong>جرعة الطفل:</strong> اسحب <span class="highlight">(${volumeToDraw.toFixed(2)} ml)</span> من المحلول.<br>
+                    3. <span class="highlight">تنبيه إكلينيكي هام:</span> يجب تخفيف الجرعة المسحوبة في سرنجة أخرى بإضافة <span class="highlight">(${diluentToAdd.toFixed(2)} ml)</span> من المحلول المتوافق لتصل لتركيز أقصاه (5 mg/ml) قبل الإعطاء الوريدي لتجنب التهاب الوريد.
+                `;
+            } else {
+                // باقي الأدوية القياسية
+                stepsHTML = `
+                    1. <strong>التحضير القياسي:</strong> قم بحل الفايل لتصل للتركيز المعتمد في البروتوكول (${drugInfo.stdMg}mg / ${drugInfo.stdMl}ml).<br>
+                    2. <strong>جرعة الطفل:</strong> اسحب <span class="success-text">(${volumeToDraw.toFixed(2)} ml)</span> من المحلول السابق، <span class="success-text">وهي جاهزة للحقن مباشرة.</span>
+                `;
+            }
+        } else {
+            // الأدوية ذات الإدخال اليدوي
+            let totalVolumeNeeded = requiredDoseMg / maxConc;
+            let diluentToAdd = totalVolumeNeeded > volumeToDraw ? totalVolumeNeeded - volumeToDraw : 0;
+
+            if (diluentToAdd > 0) {
+                stepsHTML = `
+                    1. اسحب <span class="highlight">(${volumeToDraw.toFixed(2)} ml)</span> من الفايل المتاح.<br>
+                    2. أضف عليها <span class="highlight">(${diluentToAdd.toFixed(2)} ml)</span> تخفيف إضافي.<br>
+                    3. الحجم النهائي للإعطاء: <span class="highlight">(${totalVolumeNeeded.toFixed(2)} ml)</span>.
+                `;
+            } else {
+                stepsHTML = `
+                    1. اسحب <span class="success-text">(${volumeToDraw.toFixed(2)} ml)</span> من الفايل المتاح.<br>
+                    2. <span class="success-text">الجرعة جاهزة للحقن مباشرة</span> (لا تحتاج تخفيف إضافي لأن تركيزها آمن).
+                `;
+            }
+        }
+
         const resultHTML = `
-            <strong>الدواء:</strong> ${drugName} <br>
-            <strong>الجرعة الفردية المحسوبة:</strong> <span class="highlight">${requiredDoseMg.toFixed(2)} mg</span> (${dosePerKg} mg/kg) <br>
-            <strong>التكرار (Interval):</strong> <span class="highlight" style="color:#27ae60;">${interval}</span> <br>
+            <strong>الدواء:</strong> ${drugName} ${isMeningitis ? '<span class="highlight">(Meningitis Dose)</span>' : ''}<br>
+            <strong>الجرعة المطلوبة:</strong> <span class="highlight">${requiredDoseMg.toFixed(2)} mg</span> (${dosePerKg} mg/kg) <br>
+            <strong>التكرار:</strong> <span style="color:var(--success-color); font-weight:bold;">${interval}</span> <br>
             <strong>خطوات التحضير بدقة:</strong><br>
-            1. اسحب <span class="highlight">${volumeToDraw.toFixed(2)} ml</span> من الفايل المتاح.<br>
-            2. أضف عليها <span class="highlight">${diluentToAdd > 0 ? diluentToAdd.toFixed(2) : "0"} ml</span> من المحلول المتوافق لتصل للتركيز الآمن.<br>
-            3. الحجم النهائي الإجمالي للحقن هو: <span class="highlight">${totalVolumeNeeded.toFixed(2)} ml</span>.<br>
+            <div style="background: white; padding: 10px; border-radius: 5px; margin-top: 5px; border-right: 3px solid #ccc;">
+                ${stepsHTML}
+            </div>
             <hr style="border:0; border-top:1px solid #ccc; margin: 10px 0;">
-            <small><strong>تنبيه إكلينيكي:</strong> ${note}</small>
+            <small><strong>ملاحظة إكلينيكية:</strong> ${drugInfo.note}</small>
         `;
 
         document.getElementById('resultContent').innerHTML = resultHTML;
